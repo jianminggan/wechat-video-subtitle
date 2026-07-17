@@ -1,0 +1,35 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime state and browser profiles
+.wechat-video-subtitle/
+profile/
+state/
+cache/
+cookies.json
+storage-state.json
+
+# Generated media and transcripts
+stt_output/
+outputs/
+downloads/
+*.mp4
+*.mkv
+*.webm
+*.mp3
+*.m4a
+*.wav
+*.aac
+
+# Editors and OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,4 @@
+interface:
+  display_name: "微信视频号下载与逐字稿"
+  short_description: "下载视频号普通视频、直播回放并生成逐字稿"
+  default_prompt: "使用 $wechat-video-subtitle 处理这个微信视频号链接，并按我的要求保留视频或逐字稿。"
