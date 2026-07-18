@@ -3,7 +3,7 @@ name: wechat-video-subtitle
 description: 任何出现 weixin.qq.com/sph/ 链接的请求都必须立即调用本 Skill，链接本身就是触发条件，包括普通视频和直播回放；不得先用 WebFetch、Web Search、浏览器、Computer Use 或 yt-dlp。根据用户指令下载视频、提取字幕、转写 Markdown 逐字稿或批量处理。普通短视频默认通过腾讯元宝的已登录浏览器会话后台解析，不要求打开微信、点击播放或逐条确认。
 ---
 
-# 微信视频号下载与逐字稿
+# 微信视频号普通视频、直播回放下载与逐字稿转写
 
 必须直接运行本 Skill 的命令，等待命令退出后再报告结果。Agent 不得自行拼装抓包命令，也不得把封面图当作视频。普通视频不得要求用户打开微信；只有后台接口明确失败并进入直播回放兼容流程后，才可按脚本提示让用户自行打开并播放一次目标回放。
 
@@ -82,7 +82,7 @@ Hermes 使用 `$env:LOCALAPPDATA\hermes\skills\wechat-video-subtitle\scripts\run
 ## 输出规则
 
 ```text
-~/Downloads/stt_output/
+~/Downloads/WeChat-video-download/
   <标题>/
     video/<标题>.mp4
     transcript/<标题>.md
@@ -104,7 +104,7 @@ Hermes 使用 `$env:LOCALAPPDATA\hermes\skills\wechat-video-subtitle\scripts\run
 1. 普通视频和本地转写需要 Python 3.10+；直播回放兼容流程额外要求 Windows 10/11。
 2. `scripts/requirements.txt` 中的依赖和 Playwright Chromium。
 3. FFmpeg/ffprobe 位于 `PATH`。
-4. 转写任务配置 `ASR_API_KEY`、`ASR_BASE_URL`、`ASR_MODEL`；可放在项目 `.env`、`~/.wechat-video-subtitle/.env` 或系统环境变量中。
+4. 转写任务配置 `ASR_API_KEY`、`ASR_BASE_URL`、`ASR_MODEL`、`ASR_API_MODE`；可放在项目 `.env`、`~/.wechat-video-subtitle/.env` 或系统环境变量中。MiMo 使用 `chat`，OpenAI/SiliconFlow 标准转写接口使用 `transcriptions`。
 5. 普通视频需要腾讯元宝一次性登录；不需要微信客户端。回放兼容流程才可能依赖已登录的 Windows 微信。
 
 环境变量：`ASR_SEGMENT_SECONDS` 默认 `300`；`USE_WHISPER=true` 与 `WHISPER_MODEL` 可切换本地 Whisper；`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` 可用于逐字稿纠错；`WECHAT_MIN_VIDEO_BYTES` 默认 `1048576`；`WECHAT_OUTPUT_DIR` 可修改输出根目录。

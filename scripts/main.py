@@ -53,7 +53,7 @@ from transcribe import process_multiple_videos, process_video
 
 
 OUTPUT_DIR = Path(
-    os.environ.get("WECHAT_OUTPUT_DIR", str(Path.home() / "Downloads" / "stt_output"))
+    os.environ.get("WECHAT_OUTPUT_DIR", str(Path.home() / "Downloads" / "WeChat-video-download"))
 )
 
 

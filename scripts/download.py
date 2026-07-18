@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 import requests
 
 OUTPUT_DIR = Path(
-    os.environ.get("WECHAT_OUTPUT_DIR", str(Path.home() / "Downloads" / "stt_output"))
+    os.environ.get("WECHAT_OUTPUT_DIR", str(Path.home() / "Downloads" / "WeChat-video-download"))
 )
 MIN_VIDEO_BYTES = int(os.environ.get("WECHAT_MIN_VIDEO_BYTES", str(1024 * 1024)))
 WECHAT_UA = (

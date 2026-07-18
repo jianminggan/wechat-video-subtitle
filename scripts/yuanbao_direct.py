@@ -24,7 +24,7 @@ PARSE_URL = "https://yuanbao.tencent.com/api/weixin/get_parse_result"
 FEED_URL = "https://channels.weixin.qq.com/finder-preview/api/feed/get_feed_info"
 STATE_DIR = Path.home() / ".wechat-video-subtitle" / "yuanbao"
 PROFILE_DIR = STATE_DIR / "profile"
-VALIDATION_DIR = Path.home() / "Downloads" / "stt_output" / "_direct-validation"
+VALIDATION_DIR = Path.home() / "Downloads" / "WeChat-video-download" / "_direct-validation"
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"

@@ -1,7 +1,7 @@
 """
 字幕转写模块
-使用 Mimo ASR API（chat/completions + input_audio 格式）进行语音转文字
-支持 Whisper 作为备选
+支持 chat/input_audio 和标准 audio/transcriptions API 进行语音转文字
+支持本地 Whisper 作为备选
 输出格式: 仅 .md 文件，带标点符号和分段
 """
 
@@ -42,13 +42,14 @@ def load_optional_env() -> None:
 load_optional_env()
 
 OUTPUT_DIR = Path(
-    os.environ.get("WECHAT_OUTPUT_DIR", str(Path.home() / "Downloads" / "stt_output"))
+    os.environ.get("WECHAT_OUTPUT_DIR", str(Path.home() / "Downloads" / "WeChat-video-download"))
 )
 
 # ASR API 配置（环境变量优先，也可读取项目或用户配置文件）
 ASR_API_KEY = os.environ.get("ASR_API_KEY", "")
 ASR_BASE_URL = os.environ.get("ASR_BASE_URL", os.environ.get("ASR_API_BASE_URL", ""))
 ASR_MODEL = os.environ.get("ASR_MODEL", "mimo-v2.5-asr")
+ASR_API_MODE = os.environ.get("ASR_API_MODE", "chat").strip().lower()
 
 # Whisper 备选
 USE_WHISPER = os.environ.get("USE_WHISPER", "").lower() in ("true", "1", "yes")
@@ -121,15 +122,50 @@ def extract_audio_segments(
     return chunks
 
 
-def transcribe_with_mimo(audio_path: Path) -> Optional[str]:
-    """使用 Mimo ASR API（chat/completions + input_audio 格式）"""
+def transcribe_with_api(audio_path: Path) -> Optional[str]:
+    """Use either chat/input_audio or standard audio/transcriptions."""
     if not ASR_API_KEY or not ASR_BASE_URL:
         print("ASR API 未配置，请设置环境变量或 .env 文件")
         return None
 
-    print(f"使用 Mimo ASR API ({ASR_MODEL})...")
+    headers = {"Authorization": f"Bearer {ASR_API_KEY}"}
+    if ASR_API_MODE == "transcriptions":
+        url = f"{ASR_BASE_URL.rstrip('/')}/audio/transcriptions"
+        print(f"使用标准 Audio Transcriptions API ({ASR_MODEL})...")
+        try:
+            with audio_path.open("rb") as audio_file:
+                resp = requests.post(
+                    url,
+                    headers=headers,
+                    files={"file": (audio_path.name, audio_file, "audio/mpeg")},
+                    data={"model": ASR_MODEL},
+                    timeout=600,
+                )
+            resp.raise_for_status()
+            text = str(resp.json().get("text") or "").strip()
+            if not text:
+                raise KeyError("text")
+            print(f"转写完成: {len(text)} 字符")
+            return text
+        except requests.exceptions.Timeout:
+            print("Audio Transcriptions API 请求超时")
+            return None
+        except requests.exceptions.RequestException as error:
+            print(f"Audio Transcriptions API 调用失败: {error}")
+            if error.response is not None:
+                print(f"响应: {error.response.text[:300]}")
+            return None
+        except (KeyError, ValueError) as error:
+            print(f"解析 Audio Transcriptions 响应失败: {error}")
+            return None
+
+    if ASR_API_MODE != "chat":
+        print(f"不支持的 ASR_API_MODE: {ASR_API_MODE}（可选 chat/transcriptions）")
+        return None
+
+    print(f"使用 Chat Input Audio API ({ASR_MODEL})...")
     url = f"{ASR_BASE_URL.rstrip('/')}/chat/completions"
-    headers = {"Authorization": f"Bearer {ASR_API_KEY}", "Content-Type": "application/json"}
+    headers["Content-Type"] = "application/json"
 
     # 读取音频文件并 base64 编码
     with open(audio_path, "rb") as f:
@@ -151,7 +187,7 @@ def transcribe_with_mimo(audio_path: Path) -> Optional[str]:
     }
 
     try:
-        print("正在调用 Mimo ASR API...（可能需要几分钟）")
+        print("正在调用 ASR API...（可能需要几分钟）")
         resp = requests.post(url, headers=headers, json=payload, timeout=600)
         resp.raise_for_status()
         result = resp.json()
@@ -159,10 +195,10 @@ def transcribe_with_mimo(audio_path: Path) -> Optional[str]:
         print(f"转写完成: {len(text)} 字符")
         return text
     except requests.exceptions.Timeout:
-        print("Mimo ASR API 请求超时")
+        print("ASR API 请求超时")
         return None
     except requests.exceptions.RequestException as e:
-        print(f"Mimo ASR API 调用失败: {e}")
+        print(f"ASR API 调用失败: {e}")
         if hasattr(e, 'response') and e.response:
             print(f"响应: {e.response.text[:300]}")
         return None
@@ -270,7 +306,7 @@ def transcribe_segment(index: int, total: int, audio_path: Path) -> tuple[int, O
     text = None
     for attempt in range(1, 4):
         if not USE_WHISPER:
-            text = transcribe_with_mimo(audio_path)
+            text = transcribe_with_api(audio_path)
         if not text:
             text = transcribe_with_whisper(audio_path)
         if text and text.strip():

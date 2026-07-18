@@ -17,7 +17,7 @@ cookies.json
 storage-state.json
 
 # Generated media and transcripts
-stt_output/
+WeChat-video-download/
 outputs/
 downloads/
 *.mp4

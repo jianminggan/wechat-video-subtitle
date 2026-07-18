@@ -76,7 +76,7 @@ scripts\run.cmd auth
 
 ## 转写失败
 
-检查 `ASR_API_KEY`、`ASR_BASE_URL`、`ASR_MODEL` 是否属于同一个 OpenAI-compatible 接口，并确认接口支持 `chat/completions` 的 `input_audio` 输入。
+检查 `ASR_API_KEY`、`ASR_BASE_URL`、`ASR_MODEL` 是否属于同一个服务，并确认 `ASR_API_MODE` 正确：MiMo 的 `chat/completions + input_audio` 使用 `chat`；OpenAI/SiliconFlow 的 `/audio/transcriptions` 使用 `transcriptions`。
 
 长视频默认分成连续 300 秒片段，并发 4 个请求。遇到限流时降低 `ASR_WORKERS`；接口限制单次音频大小时降低 `ASR_SEGMENT_SECONDS`，但不建议低于 60 秒。
 

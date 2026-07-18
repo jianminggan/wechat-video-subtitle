@@ -1,72 +1,68 @@
-# wechat-video-subtitle
+# 微信视频号视频下载、直播回放下载与逐字稿转写 Skill
 
-面向 Codex、Claude Code、Hermes 等 AI Agent 的微信视频号下载与逐字稿 Skill。
+把一个微信视频号链接交给 AI Agent，就可以完成：
 
-给 Agent 一个 `https://weixin.qq.com/sph/...` 链接，并说明“下载视频”或“提取逐字稿”即可。普通短视频走腾讯元宝后台解析，日常使用不需要打开微信；直播回放在 Windows 上使用微信客户端的本地网络统计记录，需要用户手动打开目标回放并播放几秒，但不录屏、不录音，也不安装代理或证书。
+- 下载微信视频号普通短视频
+- 下载微信视频号直播回放视频
+- 把普通视频或直播回放转成 Markdown 逐字稿
+- 批量处理多个视频号链接
+- 把本地视频转成逐字稿
 
-## 能力与限制
+支持 Codex、Claude Code、Hermes 等能够运行本地命令的 AI Agent。
 
-| 场景 | 自动化程度 | Windows | macOS / Linux |
+普通视频可以全自动下载，不需要打开微信；直播回放需要在 Windows 微信中手动播放几秒，让 Skill 获得当前回放的媒体信息。整个过程不录屏、不录音、不安装抓包证书，也不会控制或读取微信聊天界面。
+
+## 先看结论
+
+| 你的需求 | 是否需要元宝登录 | 是否需要 Windows 微信 | 是否需要 ASR API |
 | --- | --- | --- | --- |
-| 普通视频下载 | 全自动，首次登录元宝一次 | 支持 | 实验性支持 |
-| 普通视频转逐字稿 | 全自动 | 支持 | 实验性支持 |
-| 直播回放下载 | 两阶段，用户播放几秒 | 支持 | 不支持 |
-| 直播回放转逐字稿 | 两阶段，用户播放几秒 | 支持 | 不支持 |
-| 本地视频转逐字稿 | 全自动 | 支持 | 支持 |
+| 下载普通视频 | 首次使用登录一次 | 不需要 | 不需要 |
+| 普通视频转逐字稿 | 首次使用登录一次 | 不需要 | 需要 |
+| 下载直播回放 | 不依赖元宝结果 | 需要，手动播放几秒 | 不需要 |
+| 直播回放转逐字稿 | 不依赖元宝结果 | 需要，手动播放几秒 | 需要 |
+| 本地视频转逐字稿 | 不需要 | 不需要 | 需要 |
 
-直播回放依赖 Windows 微信客户端产生的 `Tencent/xwechat/net*` 本地网络统计记录，因此当前不能在 macOS/Linux 上工作。普通视频不依赖微信客户端。
+> 只下载视频，不需要配置任何 ASR API。只有“生成逐字稿”才需要语音转文字服务。
 
-## 工作原理
+## 最简单的使用方式
 
-### 普通视频
+安装完成后，直接对 AI Agent 说：
 
-1. 使用独立 Chromium 配置打开腾讯元宝的已登录会话。
-2. 在元宝同源页面内提交当前分享链接，每个任务都重新解析。
-3. 使用本次返回的临时凭据获取视频标题、作者和媒体地址。
-4. 下载后检查文件大小、文件头和 `ffprobe` 视频流，拒绝把封面、HTML 错误页或上一个视频当作成功结果。
-
-### 直播回放
-
-1. 第一阶段只记录分享 ID 和准备时间，然后返回 `ACTION_REQUIRED`。
-2. 用户在已登录的 Windows 微信中重新打开目标链接并播放几秒。
-3. 第二阶段只读取准备时间之后新产生的微信本地网络统计记录。
-4. 按分享会话、`feedId`、播放活动和 `Content-Range` 选择主播放流，避免抓到同页预加载的其他作品。
-5. 自动匹配解密参数，流式解密并保存 MP4，或直接提取临时音频生成逐字稿。
-
-这个流程不会控制或读取微信界面，不会给联系人发消息，不安装本地证书，不修改系统代理，不运行 mitmproxy，也不扫描微信进程内存。
-
-## 环境要求
-
-- Python 3.10 或更高版本
-- FFmpeg 与 ffprobe，且可从 `PATH` 运行
-- Playwright Chromium
-- 普通视频：腾讯元宝账号，首次使用登录一次
-- 直播回放：Windows 10/11、已登录的桌面微信
-- 逐字稿：OpenAI-compatible ASR 接口，或本地 Whisper
-
-### 安装 FFmpeg
-
-Windows 可使用：
-
-```powershell
-winget install Gyan.FFmpeg
+```text
+https://weixin.qq.com/sph/xxxx 下载这个视频
+https://weixin.qq.com/sph/xxxx 提取逐字稿
+https://weixin.qq.com/sph/xxxx 生成逐字稿，同时保留视频
 ```
 
-macOS 可使用：
+Skill 看到 `weixin.qq.com/sph/` 链接后会自动选择正确命令。普通视频直接后台下载；确定是直播回放时，Agent 会告诉你何时打开 Windows 微信并播放。
 
-```bash
-brew install ffmpeg
+## 安装
+
+### 让 AI Agent 帮你安装
+
+把下面这段话发给 Codex、Claude Code 或 Hermes：
+
+```text
+请帮我安装这个 Skill：
+https://github.com/jianminggan/wechat-video-subtitle
+
+请按照 README 完成 Python 依赖、Playwright Chromium 和 FFmpeg 的安装，
+然后运行 auth，让我登录一次腾讯元宝。
+如果我要生成逐字稿，再提醒我配置 ASR API。
 ```
 
-## 安装 Skill
+### 手动安装到多个 Agent 共用目录
 
-### 推荐：一个主目录，多 Agent 共用
+推荐只保留一份主目录，再让多个 Agent 共用：
 
 ```powershell
 git clone https://github.com/jianminggan/wechat-video-subtitle.git "$HOME\.agents\skills\wechat-video-subtitle"
+Set-Location "$HOME\.agents\skills\wechat-video-subtitle"
+python -m pip install -r scripts\requirements.txt
+python -m playwright install chromium
 ```
 
-Codex 默认能从 `.agents/skills` 发现 Skill。Claude Code 和 Hermes 可创建目录联接，三者始终使用同一份代码：
+Codex 默认可从 `.agents/skills` 发现 Skill。Claude Code 和 Hermes 可以创建目录联接：
 
 ```powershell
 New-Item -ItemType Directory -Force "$HOME\.claude\skills" | Out-Null
@@ -80,150 +76,241 @@ New-Item -ItemType Junction `
   -Target "$HOME\.agents\skills\wechat-video-subtitle"
 ```
 
-如果目标目录已经存在，请先确认里面没有要保留的自定义修改，再自行重命名或移走；不要直接覆盖。
+如果同名目标目录已经存在，先确认其中没有需要保留的修改，再自行重命名或移走；不要直接覆盖。
 
-只使用一个 Agent 时，也可以把仓库直接克隆到对应目录：
+单独安装时可使用：
 
-- Codex：`%USERPROFILE%\.codex\skills\wechat-video-subtitle`
-- Claude Code：`%USERPROFILE%\.claude\skills\wechat-video-subtitle`
-- Hermes：`%LOCALAPPDATA%\hermes\skills\wechat-video-subtitle`
+| Agent | Windows 安装目录 |
+| --- | --- |
+| Codex | `%USERPROFILE%\.codex\skills\wechat-video-subtitle` |
+| Claude Code | `%USERPROFILE%\.claude\skills\wechat-video-subtitle` |
+| Hermes | `%LOCALAPPDATA%\hermes\skills\wechat-video-subtitle` |
 
-### 安装 Python 依赖
+## 前置条件
 
-在仓库目录运行：
+| 依赖 | 用途 | 是否必需 |
+| --- | --- | --- |
+| Python 3.10+ | 运行 Skill | 必需 |
+| FFmpeg / ffprobe | 校验视频、提取和切分音频 | 必需 |
+| Playwright Chromium | 登录元宝并解析普通视频 | 普通视频必需 |
+| 腾讯元宝登录 | 获取普通视频媒体信息 | 普通视频首次使用配置 |
+| Windows 桌面微信 | 获取直播回放媒体信息 | 仅直播回放需要 |
+| ASR API 或本地 Whisper | 语音转文字 | 仅逐字稿需要 |
+
+Windows 安装 FFmpeg：
 
 ```powershell
-python -m pip install -r scripts\requirements.txt
-python -m playwright install chromium
+winget install Gyan.FFmpeg
 ```
 
-首次使用普通视频下载时登录腾讯元宝：
+macOS 安装 FFmpeg：
+
+```bash
+brew install ffmpeg
+```
+
+## 第一次使用：登录腾讯元宝
+
+普通视频通过腾讯元宝后台解析。第一次使用时运行：
 
 ```powershell
 scripts\run.cmd auth
 ```
 
-弹出的浏览器使用独立配置目录 `~/.wechat-video-subtitle/yuanbao/profile`。登录成功后关闭即可，平时无需重复登录。
+Skill 会打开一个独立的腾讯元宝 Chromium 窗口。使用微信扫码或元宝支持的其他方式完成登录即可。
 
-## 配置逐字稿
+需要注意：
 
-复制 `.env.example` 为 `.env`，填入自己的接口信息。`.env` 已被 Git 忽略，不会提交。
+- 这是腾讯元宝登录，不是“视频号助手”登录。
+- 一台电脑通常只需登录一次；登录过期后再运行一次 `auth`。
+- 登录状态保存在 `~/.wechat-video-subtitle/yuanbao/profile`，不会上传到 GitHub。
+- 日常下载普通视频不需要打开微信，也不需要播放视频。
+
+## 需要逐字稿时：配置 ASR API
+
+只下载视频可以跳过本节。
+
+复制 `.env.example` 为 `.env`，然后根据选择的服务填写。也可以把配置放在 `~/.wechat-video-subtitle/.env`，或者设置为系统环境变量。
+
+### 方案一：小米 MiMo-V2.5-ASR，推荐
+
+当前 Skill 默认适配 MiMo 的 `chat/completions + input_audio` 接口，中文长视频转写是最省事的配置。
+
+- 开放平台：[platform.xiaomimimo.com](https://platform.xiaomimimo.com/)
+- ASR 接口文档：[MiMo-V2.5-ASR 语音识别](https://platform.xiaomimimo.com/docs/zh-CN/api/audio/Speech-Recognition)
+- API Key、Base URL 和实际费用以开放平台控制台为准
 
 ```dotenv
-ASR_API_KEY=your-key
-ASR_BASE_URL=https://your-provider.example/v1
-ASR_MODEL=your-asr-model
+ASR_API_KEY=你的_MiMo_API_Key
+ASR_BASE_URL=https://api.xiaomimimo.com/v1
+ASR_MODEL=mimo-v2.5-asr
+ASR_API_MODE=chat
 ```
 
-也可以把配置放在 `~/.wechat-video-subtitle/.env`，或直接设置系统环境变量。环境变量优先级最高。
+如果购买的是 Token Plan，请使用控制台给出的专属 Base URL，例如中国集群可能是 `https://token-plan-cn.xiaomimimo.com/v1`。
 
-可选的 LLM 纠错配置：
+### 方案二：硅基流动 SenseVoice
+
+硅基流动提供标准 `/audio/transcriptions` 接口，可使用 SenseVoiceSmall。
+
+- 官网：[cloud.siliconflow.cn](https://cloud.siliconflow.cn/)
+- 接口文档：[Create transcription](https://docs.siliconflow.cn/cn/api-reference/audio/create-audio-transcriptions)
+- 是否有免费额度、限流和价格以官网当前规则为准
 
 ```dotenv
-LLM_API_KEY=your-key
-LLM_BASE_URL=https://your-provider.example/v1
-LLM_MODEL=your-model
+ASR_API_KEY=你的_硅基流动_API_Key
+ASR_BASE_URL=https://api.siliconflow.cn/v1
+ASR_MODEL=FunAudioLLM/SenseVoiceSmall
+ASR_API_MODE=transcriptions
 ```
 
-默认把音频切为连续的 5 分钟片段，并发识别 4 段。片段之间不留空隙，因此不会主动丢掉衔接处；如接口限制更严格，可调整：
+### 方案三：OpenAI Speech-to-Text
+
+可以使用 OpenAI 的标准音频转写接口。
+
+- API 平台：[platform.openai.com](https://platform.openai.com/)
+- 接口文档：[Audio transcriptions](https://platform.openai.com/docs/api-reference/audio/createTranscription)
 
 ```dotenv
-ASR_SEGMENT_SECONDS=300
-ASR_WORKERS=4
+ASR_API_KEY=你的_OpenAI_API_Key
+ASR_BASE_URL=https://api.openai.com/v1
+ASR_MODEL=gpt-4o-mini-transcribe
+ASR_API_MODE=transcriptions
 ```
 
-不使用云端 ASR 时，可安装并启用本地 Whisper：
+### 方案四：本地 Whisper，不使用 API
+
+有合适显卡、愿意在本地运行模型时，可安装 OpenAI Whisper：
+
+```powershell
+python -m pip install openai-whisper
+```
 
 ```dotenv
 USE_WHISPER=true
 WHISPER_MODEL=large
 ```
 
-## 直接运行
+本地 Whisper 不产生 API 调用费用，但下载模型、显存占用和处理时间通常更高。
 
-Windows：
+### 可选：逐字稿错别字纠正
 
-```powershell
-scripts\run.cmd download "https://weixin.qq.com/sph/..."
-scripts\run.cmd transcript "https://weixin.qq.com/sph/..."
-scripts\run.cmd transcript "https://weixin.qq.com/sph/..." --keep-video
-scripts\run.cmd batch links.txt
-scripts\run.cmd transcribe "D:\videos\demo.mp4"
+ASR 会出现同音字、人名和专业术语错误。可以额外配置任意兼容 OpenAI Chat Completions 的大模型：
+
+```dotenv
+LLM_API_KEY=你的_LLM_API_Key
+LLM_BASE_URL=https://你的接口地址/v1
+LLM_MODEL=你的模型名称
 ```
 
-macOS/Linux 的普通视频与本地转写：
+后处理只纠正确定的错别字、补标点和按语义分段，不总结、不改写，保留口语表达。
 
-```bash
-sh scripts/run.sh download "https://weixin.qq.com/sph/..."
-sh scripts/run.sh transcript "https://weixin.qq.com/sph/..."
-```
+## 使用方法
 
-直播回放可显式执行：
-
-```powershell
-scripts\run.cmd replay-arm "https://weixin.qq.com/sph/..."
-# 在 Windows 微信中重新打开目标链接并播放几秒
-scripts\run.cmd replay-download "https://weixin.qq.com/sph/..."
-```
-
-只要用户明确说“直播回放”，Agent 应直接使用 `replay-arm`。如果未说明类型，普通 `download`/`transcript` 会先尝试元宝后台解析，确认无法取得媒体后再进入回放流程。
-
-## 对 Agent 下指令
-
-常用提示词：
+### 在 AI Agent 中使用
 
 ```text
-https://weixin.qq.com/sph/xxxx 下载这个视频
-https://weixin.qq.com/sph/xxxx 提取逐字稿
-https://weixin.qq.com/sph/xxxx 生成逐字稿，同时保留视频
+下载这个微信视频号视频：https://weixin.qq.com/sph/xxxx
+把这个微信视频号直播回放下载下来：https://weixin.qq.com/sph/xxxx
+把这个链接转成逐字稿：https://weixin.qq.com/sph/xxxx
 ```
 
-Skill 的触发描述明确要求：看到 `weixin.qq.com/sph/` 就先加载本 Skill，不先 WebFetch、搜索、打开浏览器或尝试 yt-dlp。不同模型的工具调用能力仍有差异，但下载、校验、转写和清理逻辑都在脚本中完成，模型只负责选择命令和报告结果。
+### 命令行使用
+
+```powershell
+# 只下载视频
+scripts\run.cmd download "https://weixin.qq.com/sph/..."
+
+# 只保留逐字稿，成功后自动删除中间视频和音频
+scripts\run.cmd transcript "https://weixin.qq.com/sph/..."
+
+# 同时保留视频和逐字稿
+scripts\run.cmd transcript "https://weixin.qq.com/sph/..." --keep-video
+
+# 转写本地视频
+scripts\run.cmd transcribe "D:\videos\demo.mp4"
+
+# 批量生成逐字稿，links.txt 每行一个链接
+scripts\run.cmd batch links.txt
+```
+
+## 直播回放为什么需要播放几秒
+
+腾讯元宝并不为所有直播回放返回媒体信息。遇到直播回放时，Skill 使用两阶段流程：
+
+1. Agent 先准备任务并返回 `ACTION_REQUIRED`。
+2. 你在已登录的 Windows 微信中重新打开目标直播回放并播放几秒。
+3. 回复 Agent“已播放”。
+4. Agent 读取这次播放新产生的本地网络统计记录，下载并校验目标回放。
+
+Skill 不会点击或控制微信，不会读取聊天，不会给任何联系人发消息，也不要求退出微信、清缓存、重新扫码或安装抓包证书。
+
+直播回放流程目前只支持 Windows 10/11。普通视频和本地视频转写可在 Windows 使用；macOS/Linux 的普通视频流程属于实验性支持。
 
 ## 输出规则
 
-默认输出到 `~/Downloads/stt_output`：
+所有结果默认保存在：
 
 ```text
-stt_output/
+~/Downloads/WeChat-video-download/
+```
+
+每个视频有一个独立任务文件夹：
+
+```text
+WeChat-video-download/
   视频标题/
     video/视频标题.mp4
     transcript/视频标题.md
     audio/chunk_000.mp3
 ```
 
-- `download`：只保留视频。
-- `transcript`：成功后只保留逐字稿，自动删除中间视频和音频。
-- `transcript --keep-video`：保留视频和逐字稿。
-- 只有显式添加 `--keep-audio` 才保留音频切片。
-- 转写失败时保留中间文件，方便续跑和排查。
+- 用户说“下载视频”：只保留 `video/`。
+- 用户说“提取逐字稿”：成功后只保留 `transcript/`，自动删除中间视频和音频。
+- 明确要求视频和逐字稿：保留 `video/` 与 `transcript/`。
+- 只有明确要求保留音频时才保留 `audio/`。
+- 转写失败时会保留中间文件，便于续跑和排查。
 
-可用 `WECHAT_OUTPUT_DIR` 修改输出根目录。
+可以通过环境变量修改输出位置：
 
-## 我们踩过的坑
+```dotenv
+WECHAT_OUTPUT_DIR=D:\Downloads\WeChat-video-download
+```
 
-- **封面被当成视频**：仅看到“下载完成”不可信。现在强制检查大于 1 MiB、MP4 `ftyp` 和 ffprobe 视频流。
-- **第二个链接仍下载第一个视频**：不能复用上一条媒体地址。现在每个链接有独立任务 ID、重新解析，并把分享 ID 与时间写入文件名。
-- **普通视频误入直播回放流程**：Playwright 未安装属于环境错误，不代表链接是直播回放。脚本会明确失败，不要求用户打开微信。
-- **抓到直播页面里的其他作品**：页面会预加载推荐视频。现在只读取准备时间后的记录，并综合会话、`feedId`、播放活动和完整文件大小选流。
-- **Agent 重复启动同一任务**：下载或转写时长较长不等于卡死。Agent 必须等待当前命令退出，不能重复执行。
-- **Hermes/Claude 的 Python 环境不同**：虚拟环境可能禁用 user site。入口会恢复依赖路径，Windows 启动器会自动寻找可用 Python。
-- **中文显示乱码**：Windows 启动器设置 UTF-8；文件本身始终按 UTF-8 写入。旧终端仍乱码时，以实际 `.md` 文件为准。
-- **逐字稿任务留下视频**：任务语义决定保留内容。默认只留逐字稿，只有用户明确要求才保留视频或音频。
-- **把直播回放做成一条阻塞命令**：Agent 无法在等待用户操作时可靠续跑。现在使用退出码 `3` 和 `NEXT_COMMAND` 的两阶段协议。
+## 长视频和逐字稿处理
 
-更完整的错误解释见 [references/troubleshooting.md](references/troubleshooting.md)。
+- 音频默认切成连续的 5 分钟片段，片段之间不留空隙。
+- 默认并发识别 4 个片段。
+- 每个完成的片段会缓存结果，失败重跑时可以继续。
+- 默认输出 Markdown 逐字稿，不自动生成摘要。
+
+可调整：
+
+```dotenv
+ASR_SEGMENT_SECONDS=300
+ASR_WORKERS=4
+```
+
+## 这个 Skill 解决过哪些常见问题
+
+- 防止 38 KB 封面图被误报成视频。
+- 防止下载第二个链接时复用第一个视频缓存。
+- Playwright 缺失时明确报告环境错误，不误判成直播回放。
+- 直播页面预加载多个作品时，避免下载到其他视频。
+- 转写任务默认清理中间视频和音频，只保留用户要求的结果。
+- 兼容 Hermes、Claude Code 与 Codex 不同的 Python 运行环境。
+- 通过 UTF-8 启动参数减少 Windows 中文乱码。
+
+详细排查见 [references/troubleshooting.md](references/troubleshooting.md)。
 
 ## 安全与隐私
 
-- 仓库不包含 API Key、Cookie、元宝登录配置、微信日志、媒体签名 URL、解密参数或任何下载产物。
-- 登录状态只保存在本机 `~/.wechat-video-subtitle`，该目录不属于仓库。
-- 直播回放状态只记录分享 ID 和准备时间，不保存签名 URL、token 或解密密钥。
-- 仅处理你有权查看、保存或转写的内容，并遵守平台条款和当地法律。
+- 仓库不包含 API Key、Cookie、元宝登录配置、微信日志、媒体签名 URL 或解密参数。
+- `.env` 已加入 `.gitignore`，不要把自己的 API Key 提交到 GitHub。
+- 元宝登录状态和直播回放临时状态只保存在本机。
+- 只处理你有权查看、保存和转写的内容，并遵守平台条款和当地法律。
 
 ## 更新
-
-主目录安装方式下只需：
 
 ```powershell
 Set-Location "$HOME\.agents\skills\wechat-video-subtitle"
